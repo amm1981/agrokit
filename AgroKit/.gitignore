@@ -1,0 +1,42 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# Node dependencies and generated web/backend artifacts
+node_modules/
+backend/node_modules/
+web/node_modules/
+dist/
+backend/dist/
+
+# Runtime files
+backend/storage/
+backend/server.err.log
+backend/server.out.log
+
+# Database dumps/backups with production or local data
+backup*.sql
+backend/sql/*respaldo*.sql
+backend/sql/*backup*.sql
+backend/sql/*localhost*.sql
+backend/sql/*vps_full*.sql

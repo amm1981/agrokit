@@ -1,0 +1,38 @@
+# Dependencies
+**/node_modules/
+
+# Build output
+**/dist/
+**/build/
+**/.gradle/
+**/.kotlin/
+.kotlin/
+AgroKit/.kotlin/
+
+# IDE and local machine files
+**/.idea/
+.idea/
+AgroKit/.idea/
+web/.idea/
+*.iml
+**/local.properties
+
+# Environment and secrets
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Logs
+*.log
+**/server.err.log
+**/server.out.log
+
+# Local generated/storage files
+**/storage/evidencias/
+**/backend.zip
+**/backup_pre_roles.sql
+AgroKit/backend/sql/agrokit*.sql
+
+# OS files
+Thumbs.db
+.DS_Store

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "28496808241",
+    "project_id": "agrokit-67e6c",
+    "storage_bucket": "agrokit-67e6c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:28496808241:android:ddfd9884d218d112a18810",
+        "android_client_info": {
+          "package_name": "com.amm19.agrokit"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6_vE3SxW0qhfYtOhD9bch4QI1O7r9uDA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
