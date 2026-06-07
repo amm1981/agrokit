@@ -56,28 +56,6 @@ function normalizeQuery(value: string) {
     .replace(/[\u0300-\u036f]/g, '')
 }
 
-function sectorUsageTotal(item: SectorCatalogItem) {
-  return (
-    item.workersCount +
-    item.eventsCount +
-    item.beneficiariesCount +
-    item.deliveriesCount +
-    item.usersCount +
-    item.stockRowsCount
-  )
-}
-
-function buildSectorUsageLabel(item: SectorCatalogItem) {
-  const parts = [
-    `${item.workersCount} trabajadores`,
-    `${item.eventsCount} eventos`,
-    `${item.deliveriesCount} entregas`,
-    `${item.usersCount} usuarios`,
-    `${item.stockRowsCount} stocks`,
-  ]
-  return parts.join(' · ')
-}
-
 export function MaestrosPage() {
   const { hasPermission } = useAuth()
   const [gerencias, setGerencias] = useState<GerenciaCatalogItem[]>([])
