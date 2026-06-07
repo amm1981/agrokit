@@ -13,8 +13,8 @@ Panel administrativo React + Vite para operar el modelo multi-evento de AgroKit:
 Variables en `.env`:
 
 ```env
-VITE_BACKEND_BASE_URL=http://192.168.1.27:8081
-VITE_BACKEND_WS_URL=ws://192.168.1.27:8081/ws
+VITE_BACKEND_BASE_URL=https://agrokit.agrocalera.app
+VITE_BACKEND_WS_URL=wss://agrokit.agrocalera.app/ws
 VITE_ADMIN_EMAIL=admin@gmail.com
 ```
 

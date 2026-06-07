@@ -2,9 +2,9 @@
 
 Objetivo:
 
-- `https://agrocalera.app` sirve el frontend React/Vite.
-- `https://agrocalera.app/api` publica el backend Node/Express.
-- `wss://agrocalera.app/ws` publica WebSocket.
+- `https://agrokit.agrocalera.app` sirve el frontend React/Vite.
+- `https://agrokit.agrocalera.app/api` publica el backend Node/Express.
+- `wss://agrokit.agrocalera.app/ws` publica WebSocket.
 - MySQL corre local en el VPS.
 - Evidencias/fotos se guardan en Contabo Object Storage S3 compatible.
 
@@ -18,8 +18,7 @@ curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
 sudo npm install -g pm2
 
-sudo mkdir -p /var/www/agrokit/frontend/current
-sudo mkdir -p /var/www/agrokit/backend
+sudo mkdir -p /var/www/agrokit
 sudo mkdir -p /var/www/agrokit/logs
 ```
 
@@ -54,32 +53,42 @@ Ejecutar schema solo en instalacion inicial. El archivo actual hace `DROP TABLE`
 mysql -u root -p < /var/www/agrokit/backend/sql/schema.sql
 ```
 
-## 3) Backend
+## 3) Codigo desde GitHub
 
-Subir el contenido de `AgroKit/backend` a:
+Clonar el repositorio:
 
 ```bash
-/var/www/agrokit/backend
+sudo git clone https://github.com/amm1981/agrokit.git /var/www/agrokit/current
+sudo chown -R $USER:$USER /var/www/agrokit/current
 ```
+
+Rutas dentro del VPS:
+
+- Backend: `/var/www/agrokit/current/AgroKit/backend`
+- Web: `/var/www/agrokit/current/web`
+
+## 4) Backend
 
 Instalar dependencias:
 
 ```bash
-cd /var/www/agrokit/backend
+cd /var/www/agrokit/current/AgroKit/backend
 npm ci --omit=dev
 ```
 
 Crear `.env`:
 
 ```bash
-sudo nano /var/www/agrokit/backend/.env
-sudo chmod 600 /var/www/agrokit/backend/.env
+cp .env.production.example .env
+nano .env
+chmod 600 .env
 ```
 
 Ejemplo:
 
 ```env
 PORT=3001
+NODE_ENV=production
 MYSQL_HOST=127.0.0.1
 MYSQL_PORT=3306
 MYSQL_DB=agrokit
@@ -87,7 +96,12 @@ MYSQL_USER=agrokit_app
 MYSQL_PASSWORD=CAMBIAR_PASSWORD_APP
 MYSQL_CONNECTION_LIMIT=10
 
-CORS_ORIGINS=https://agrocalera.app,https://www.agrocalera.app
+CORS_ORIGINS=https://agrokit.agrocalera.app
+JWT_SECRET=CAMBIAR_POR_UN_SECRETO_LARGO_Y_SEGURO
+JWT_ISSUER=agrokit-backend
+JWT_AUDIENCE=agrokit-system
+JWT_EXPIRATION_HOURS=8
+PDA_ALLOW_CATALOG_WRITES=false
 
 EVIDENCE_MAX_BYTES=8388608
 EVIDENCE_STORAGE_DRIVER=s3
@@ -97,23 +111,23 @@ S3_REGION=us-east-1
 S3_ACCESS_KEY=CAMBIAR_ACCESS_KEY
 S3_SECRET_KEY=CAMBIAR_SECRET_KEY
 S3_FORCE_PATH_STYLE=true
-S3_PUBLIC_BASE_URL=https://usc1.contabostorage.com/7ecce4cb5fc94b34b15a07a50c637c55:agrokit-files
+S3_PUBLIC_BASE_URL=https://usc1.contabostorage.com/agrokit-files
 ```
 
 Probar:
 
 ```bash
-cd /var/www/agrokit/backend
+cd /var/www/agrokit/current/AgroKit/backend
 node src/server.js
 ```
 
 Si responde correctamente, detener con `Ctrl+C`.
 
-## 4) PM2
+## 5) PM2
 
 ```bash
-cd /var/www/agrokit/backend
-pm2 start src/server.js --name agrokit-api --cwd /var/www/agrokit/backend
+cd /var/www/agrokit/current/AgroKit/backend
+pm2 start src/server.js --name agrokit-api --cwd /var/www/agrokit/current/AgroKit/backend
 pm2 save
 pm2 startup systemd
 ```
@@ -129,36 +143,31 @@ pm2 restart agrokit-api
 pm2 monit
 ```
 
-## 5) Frontend
+## 6) Frontend
 
-En local, crear build de produccion desde `C:\Users\JMartinez\Documents\Proyectos\AndroidStudioProjects\web`:
+En VPS, crear build de produccion desde el repositorio clonado:
 
-```powershell
-Copy-Item .env.production.example .env.production
-$env:VITE_BACKEND_BASE_URL="https://agrocalera.app"
-$env:VITE_BACKEND_WS_URL="wss://agrocalera.app/ws"
-npm install
+```bash
+cd /var/www/agrokit/current/web
+cp .env.production.example .env.production
+npm ci
 npm run build
 ```
 
-Subir `dist` al VPS:
-
-```powershell
-scp -r .\dist\* root@207.244.235.198:/var/www/agrokit/frontend/current/
-```
-
-En VPS:
+Publicar `dist` para Nginx:
 
 ```bash
+sudo mkdir -p /var/www/agrokit/frontend/current
+sudo rsync -a --delete dist/ /var/www/agrokit/frontend/current/
 sudo chown -R www-data:www-data /var/www/agrokit/frontend
 ```
 
-## 6) Nginx
+## 7) Nginx
 
 Antes de activar la configuracion final, asegurar certificados. Si ya existen, estos comandos no son necesarios.
 
 ```bash
-sudo certbot certonly --nginx -d agrocalera.app -d www.agrocalera.app
+sudo certbot certonly --nginx -d agrokit.agrocalera.app
 ```
 
 Crear config:
@@ -172,7 +181,7 @@ Contenido:
 ```nginx
 server {
     listen 80;
-    server_name agrocalera.app www.agrocalera.app;
+    server_name agrokit.agrocalera.app;
 
     location /.well-known/acme-challenge/ {
         root /var/www/html;
@@ -185,7 +194,7 @@ server {
 
 server {
     listen 443 ssl http2;
-    server_name agrocalera.app www.agrocalera.app;
+    server_name agrokit.agrocalera.app;
 
     root /var/www/agrokit/frontend/current;
     index index.html;
@@ -230,8 +239,8 @@ server {
         try_files $uri =404;
     }
 
-    ssl_certificate /etc/letsencrypt/live/agrocalera.app/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/agrocalera.app/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/agrokit.agrocalera.app/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/agrokit.agrocalera.app/privkey.pem;
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 }
@@ -248,14 +257,14 @@ sudo systemctl reload nginx
 Si prefieres dejar todos los dominios en un solo certificado:
 
 ```bash
-sudo certbot --nginx -d agrocalera.app -d www.agrocalera.app
+sudo certbot --nginx -d agrokit.agrocalera.app
 ```
 
-## 7) Validaciones
+## 8) Validaciones
 
 ```bash
-curl -I https://agrocalera.app
-curl https://agrocalera.app/api/health
+curl -I https://agrokit.agrocalera.app
+curl https://agrokit.agrocalera.app/api/health
 pm2 logs agrokit-api --lines 80
 sudo tail -n 80 /var/log/nginx/error.log
 ```
@@ -263,15 +272,15 @@ sudo tail -n 80 /var/log/nginx/error.log
 Verificar WebSocket desde navegador:
 
 ```js
-const ws = new WebSocket('wss://agrocalera.app/ws')
+const ws = new WebSocket('wss://agrokit.agrocalera.app/ws')
 ws.onmessage = console.log
 ```
 
-## 8) Errores comunes
+## 9) Errores comunes
 
 - `502 Bad Gateway`: backend detenido, puerto incorrecto o PM2 no inicio.
 - `CORS`: revisar `CORS_ORIGINS` y reiniciar PM2.
 - `403` en evidencia S3: bucket no publico o `S3_PUBLIC_BASE_URL` no coincide con el formato publico de Contabo.
 - `SignatureDoesNotMatch`: revisar access key, secret, endpoint, bucket y `S3_FORCE_PATH_STYLE=true`.
-- App/web apuntan a local: reconstruir frontend con `VITE_BACKEND_BASE_URL=https://agrocalera.app`.
+- App/web apuntan a local: reconstruir frontend con `VITE_BACKEND_BASE_URL=https://agrokit.agrocalera.app`.
 - Schema borra datos: `schema.sql` actual contiene `DROP TABLE`; usar solo en instalacion inicial.

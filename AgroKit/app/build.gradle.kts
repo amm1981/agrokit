@@ -7,8 +7,8 @@
 }
 
 android {
-    val backendBaseUrl = (project.findProperty("BACKEND_BASE_URL") as String?) ?: "https://agrocalera.app"
-    val backendWsUrl = (project.findProperty("BACKEND_WS_URL") as String?) ?: "wss://agrocalera.app/ws"
+    val backendBaseUrl = (project.findProperty("BACKEND_BASE_URL") as String?) ?: "https://agrokit.agrocalera.app"
+    val backendWsUrl = (project.findProperty("BACKEND_WS_URL") as String?) ?: "wss://agrokit.agrocalera.app/ws"
 
     namespace = "com.amm19.agrokit"
     compileSdk = 36
