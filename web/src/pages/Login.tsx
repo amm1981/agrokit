@@ -107,21 +107,6 @@ export function LoginPage() {
                   </span>
                 </label>
 
-                <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                  <label className="inline-flex cursor-pointer items-center gap-2 text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={rememberMe}
-                      onChange={(event) => setRememberMe(event.target.checked)}
-                      className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                    />
-                    Recordarme
-                  </label>
-                  <a href="mailto:soporte@agrocalera.app" className="font-medium text-emerald-700 transition hover:text-emerald-800">
-                    ¿Olvidaste tu contraseña?
-                  </a>
-                </div>
-
                 {(localError ?? error) ? <ErrorBanner message={localError ?? error ?? ''} /> : null}
 
                 <button
