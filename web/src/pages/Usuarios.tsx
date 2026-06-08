@@ -229,7 +229,7 @@ export function UsuariosPage() {
           type="button"
           onClick={openCreateModal}
           disabled={!canCreate}
-          className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
           Crear usuario PDA
         </button>
@@ -311,8 +311,7 @@ export function UsuariosPage() {
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-3 sm:items-center">
           <div className="w-full max-w-4xl rounded-2xl border border-slate-200 bg-white shadow-xl">
             <div className="border-b border-slate-200 px-4 py-3">
-              <h3 className="text-base font-semibold text-slate-900">{editingUid ? 'Editar usuario PDA' : 'Crear usuario PDA'}</h3>
-              <p className="text-sm text-slate-500">Completa datos del usuario y selecciona sectores del evento activo.</p>
+              <h3 className="text-base font-semibold text-slate-900">{editingUid ? 'Editar usuario PDA' : 'DA'}</h3>
             </div>
 
             <div className="max-h-[70vh] space-y-4 overflow-y-auto p-4">
@@ -405,7 +404,7 @@ export function UsuariosPage() {
                 type="button"
                 onClick={() => void submitUser()}
                 disabled={saving || (!canCreate && editingUid === null) || (!canEdit && editingUid !== null)}
-                className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:opacity-60"
+                className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:opacity-60"
               >
                 {saving ? 'Guardando...' : editingUid ? 'Guardar cambios' : 'Crear usuario PDA'}
               </button>

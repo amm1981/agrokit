@@ -362,7 +362,7 @@ export function KitsPage() {
           <button
             type="button"
             onClick={openCreateModal}
-            className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
+            className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
           >
             Crear kit
           </button>
@@ -760,9 +760,6 @@ export function KitsPage() {
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="block">
                   <span className="mb-1 block text-sm font-medium text-slate-700">ID kit</span>
-                  <span className="mb-1 block text-xs text-slate-500">
-                    Obligatorio. Identificador unico del kit.
-                  </span>
                   <input
                     value={form.id}
                     disabled={!!editingId}
@@ -774,9 +771,6 @@ export function KitsPage() {
 
                 <label className="block">
                   <span className="mb-1 block text-sm font-medium text-slate-700">Nombre kit</span>
-                  <span className="mb-1 block text-xs text-slate-500">
-                    Obligatorio. Nombre visible para el usuario.
-                  </span>
                   <input
                     value={form.name}
                     onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
@@ -792,7 +786,7 @@ export function KitsPage() {
                   <button
                     type="button"
                     onClick={addProductRow}
-                    className="rounded-lg border border-violet-200 bg-violet-50 px-2 py-1 text-xs font-semibold text-violet-700 hover:bg-violet-100"
+                    className="rounded-lg border border-emerald-700 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:iolet-50 px-2 py-1 text-xs font-semibold text-violet-700 hover:bg-violet-100"
                   >
                     + Producto
                   </button>
@@ -874,7 +868,7 @@ export function KitsPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="w-full rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60 sm:w-auto"
+                  className="w-full rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60 sm:w-auto"
                 >
                   {saving ? 'Guardando...' : editingId ? 'Actualizar kit' : 'Crear kit'}
                 </button>

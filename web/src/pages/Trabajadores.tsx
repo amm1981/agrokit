@@ -416,7 +416,7 @@ export function TrabajadoresPage() {
             type="button"
             onClick={openCreateModal}
             disabled={importing}
-            className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-700"
+            className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800"
           >
             Agregar beneficiario
           </button>
