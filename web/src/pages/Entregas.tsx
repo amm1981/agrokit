@@ -3,6 +3,7 @@ import { EmptyState } from '../components/EmptyState'
 import { ErrorBanner } from '../components/ErrorBanner'
 import { Loader } from '../components/Loader'
 import { PageHeader } from '../components/PageHeader'
+import { useAuth } from '../hooks/useAuth'
 import { useRealtimeData } from '../hooks/useRealtimeData'
 import { deleteDeliveryRecord } from '../services/realtimeActions'
 import { backendBase } from '../services/backend'
@@ -136,7 +137,9 @@ async function exportRowsToXlsx(rows: DeliveryHistoryRow[]) {
 }
 
 export function EntregasPage() {
-  const { workers, kits, deliveries, users, eventSectors, productStocks, events, selectedEventId, loading, error } = useRealtimeData()
+  const { hasPermission } = useAuth()
+  const canDelete = hasPermission('entregas', 'delete')
+  const { workers, kits, deliveries, users, eventSectors, productStocks, events, selectedEventId, refreshData, loading, error } = useRealtimeData()
 
   const [query, setQuery] = useState('')
   const [productFilter, setProductFilter] = useState<ProductFilter>('TODOS')
@@ -444,6 +447,11 @@ export function EntregasPage() {
     setActionError(null)
     setActionMessage(null)
 
+    if (!canDelete) {
+      setActionError('No tienes permisos para eliminar entregas.')
+      return
+    }
+
     const confirmed = window.confirm(`Eliminar entrega ${row.id}?`)
     if (!confirmed) return
 
@@ -451,6 +459,7 @@ export function EntregasPage() {
       setDeletingId(row.id)
       await deleteDeliveryRecord(row.id)
       setActionMessage(`Entrega ${row.id} eliminada correctamente.`)
+      refreshData()
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'No se pudo eliminar la entrega'
       setActionError(message)
@@ -744,6 +753,7 @@ export function EntregasPage() {
                     </p>
                   </div>
 
+                  {canDelete ? (
                   <button
                     type="button"
                     onClick={() => handleDeleteDelivery(event)}
@@ -764,6 +774,7 @@ export function EntregasPage() {
                       </svg>
                     )}
                   </button>
+                  ) : null}
                 </article>
               )
             })}
@@ -782,7 +793,7 @@ export function EntregasPage() {
                   <th className="px-4 py-2 text-left font-semibold text-slate-600">Enlace de foto</th>
                   <th className="px-4 py-2 text-left font-semibold text-slate-600">Sector</th>
                   <th className="px-4 py-2 text-left font-semibold text-slate-600">Fecha y hora</th>
-                  <th className="px-4 py-2 text-left font-semibold text-slate-600">Acción</th>
+                  {canDelete ? <th className="px-4 py-2 text-left font-semibold text-slate-600">Accion</th> : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -810,6 +821,7 @@ export function EntregasPage() {
                       </td>
                       <td className="px-4 py-2 text-slate-600">{event.sectorLabel || event.sectorId || '-'}</td>
                       <td className="px-4 py-2 text-slate-600">{formatDateTime(event.timestamp)}</td>
+                      {canDelete ? (
                       <td className="px-4 py-2">
                         <button
                           type="button"
@@ -832,6 +844,7 @@ export function EntregasPage() {
                           )}
                         </button>
                       </td>
+                      ) : null}
                     </tr>
                   )
                 })}

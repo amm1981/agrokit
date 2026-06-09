@@ -30,6 +30,7 @@ interface RealtimeDataContextValue {
   eventSectors: Sector[]
   selectedEventId: string
   setSelectedEventId: (eventId: string) => void
+  refreshData: () => void
   loading: boolean
   error: string | null
 }
@@ -352,6 +353,7 @@ export function RealtimeDataProvider({ children }: { children: ReactNode }) {
   const [sectors, setSectors] = useState<Sector[]>([])
   const [eventSectors, setEventSectors] = useState<Sector[]>([])
   const [selectedEventId, setSelectedEventIdState] = useState<string>(() => readStoredEventId())
+  const [refreshVersion, setRefreshVersion] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(backendConfigError)
 
@@ -366,6 +368,10 @@ export function RealtimeDataProvider({ children }: { children: ReactNode }) {
     const normalized = eventId.trim()
     setSelectedEventIdState(normalized)
     storeEventId(normalized)
+  }
+
+  const refreshData = () => {
+    setRefreshVersion((current) => current + 1)
   }
 
   useEffect(() => {
@@ -474,6 +480,7 @@ export function RealtimeDataProvider({ children }: { children: ReactNode }) {
     canViewKits,
     canViewTrabajadores,
     canViewUsuariosPda,
+    refreshVersion,
   ])
 
   useEffect(() => {
@@ -768,6 +775,7 @@ export function RealtimeDataProvider({ children }: { children: ReactNode }) {
       eventSectors,
       selectedEventId,
       setSelectedEventId,
+      refreshData,
       loading,
       error,
     }),
@@ -782,6 +790,7 @@ export function RealtimeDataProvider({ children }: { children: ReactNode }) {
       sectors,
       eventSectors,
       selectedEventId,
+      refreshData,
       loading,
       error,
     ],

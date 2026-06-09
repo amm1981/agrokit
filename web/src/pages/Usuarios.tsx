@@ -33,7 +33,8 @@ export function UsuariosPage() {
   const canEdit = hasPermission('usuarios_pda', 'edit')
   const canDelete = hasPermission('usuarios_pda', 'delete')
 
-  const { users, eventSectors, selectedEventId, loading, error } = useRealtimeData()
+  const { users, eventSectors, selectedEventId, refreshData, loading, error } = useRealtimeData()
+  const canShowActions = canEdit || canDelete
   const [query, setQuery] = useState('')
   const [saving, setSaving] = useState(false)
   const [processingUid, setProcessingUid] = useState<string | null>(null)
@@ -63,6 +64,10 @@ export function UsuariosPage() {
   }, [eventSectors])
 
   function openCreateModal() {
+    if (!canCreate) {
+      setActionError('No tienes permisos para crear usuarios PDA.')
+      return
+    }
     setEditingUid(null)
     setForm({
       ...EMPTY_FORM,
@@ -75,6 +80,10 @@ export function UsuariosPage() {
   }
 
   function openEditModal(uid: string) {
+    if (!canEdit) {
+      setActionError('No tienes permisos para editar usuarios PDA.')
+      return
+    }
     const current = pdaUsers.find((item) => item.uid === uid)
     if (!current) return
     setEditingUid(uid)
@@ -112,6 +121,11 @@ export function UsuariosPage() {
   async function submitUser() {
     setActionError(null)
     setActionMessage(null)
+
+    if ((!editingUid && !canCreate) || (editingUid && !canEdit)) {
+      setActionError('No tienes permisos para guardar usuarios PDA.')
+      return
+    }
 
     if (!selectedEventId.trim()) {
       setActionError('Selecciona un evento activo para registrar usuarios PDA')
@@ -158,6 +172,7 @@ export function UsuariosPage() {
       }
 
       setActionMessage(editingUid ? 'Usuario PDA actualizado' : 'Usuario PDA creado')
+      refreshData()
       closeModal()
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'No se pudo guardar usuario PDA'
@@ -168,12 +183,18 @@ export function UsuariosPage() {
   }
 
   async function toggleActive(uid: string, nextActive: boolean) {
+    if (!canEdit) {
+      setActionError('No tienes permisos para activar o desactivar usuarios PDA.')
+      return
+    }
+
     try {
       setProcessingUid(uid)
       setActionError(null)
       setActionMessage(null)
       await updatePdaUserProfile(uid, { active: nextActive })
       setActionMessage(nextActive ? 'Usuario activado' : 'Usuario desactivado')
+      refreshData()
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'No se pudo actualizar estado del usuario'
       setActionError(message)
@@ -183,6 +204,11 @@ export function UsuariosPage() {
   }
 
   async function removeUser(uid: string, email: string) {
+    if (!canDelete) {
+      setActionError('No tienes permisos para eliminar usuarios PDA.')
+      return
+    }
+
     const confirmed = window.confirm(`Se eliminara el usuario PDA "${email}". ¿Deseas continuar?`)
     if (!confirmed) return
 
@@ -192,6 +218,7 @@ export function UsuariosPage() {
       setActionMessage(null)
       await deletePdaUser(uid)
       setActionMessage('Usuario PDA eliminado')
+      refreshData()
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'No se pudo eliminar usuario PDA'
       setActionError(message)
@@ -225,14 +252,15 @@ export function UsuariosPage() {
           />
         </label>
 
+        {canCreate ? (
         <button
           type="button"
           onClick={openCreateModal}
-          disabled={!canCreate}
-          className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800"
         >
           Crear usuario PDA
         </button>
+        ) : null}
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -245,7 +273,7 @@ export function UsuariosPage() {
               <th className="px-4 py-3 text-left font-semibold text-slate-600">Sectores</th>
               <th className="px-4 py-3 text-left font-semibold text-slate-600">Estado</th>
               <th className="px-4 py-3 text-left font-semibold text-slate-600">Creado</th>
-              <th className="px-4 py-3 text-left font-semibold text-slate-600">Acciones</th>
+              {canShowActions ? <th className="px-4 py-3 text-left font-semibold text-slate-600">Acciones</th> : null}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -265,28 +293,34 @@ export function UsuariosPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-slate-600">{formatDateTime(item.createdAt)}</td>
+                  {canShowActions ? (
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
+                      {canEdit ? (
                       <button
                         type="button"
                         onClick={() => openEditModal(item.uid)}
-                        disabled={!canEdit || busy}
+                        disabled={busy}
                         className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
                       >
                         Editar
                       </button>
+                      ) : null}
+                      {canEdit ? (
                       <button
                         type="button"
                         onClick={() => void toggleActive(item.uid, !item.active)}
-                        disabled={!canEdit || busy}
+                        disabled={busy}
                         className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 disabled:opacity-60"
                       >
                         {item.active ? 'Desactivar' : 'Activar'}
                       </button>
+                      ) : null}
+                      {canDelete ? (
                       <button
                         type="button"
                         onClick={() => void removeUser(item.uid, item.email)}
-                        disabled={!canDelete || busy}
+                        disabled={busy}
                         className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50 p-2 text-red-700 transition hover:bg-red-100 disabled:opacity-60"
                         title="Eliminar usuario PDA"
                       >
@@ -298,8 +332,10 @@ export function UsuariosPage() {
                           <path d="M14 11v6" />
                         </svg>
                       </button>
+                      ) : null}
                     </div>
                   </td>
+                  ) : null}
                 </tr>
               )
             })}

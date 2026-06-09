@@ -62,8 +62,12 @@ function buildProductCode(params: {
 }
 
 export function KitsPage() {
-  const { user } = useAuth()
-  const { kits, selectedEventId, events, eventSectors, productStocks, loading, error } = useRealtimeData()
+  const { user, hasPermission } = useAuth()
+  const { kits, selectedEventId, events, eventSectors, productStocks, refreshData, loading, error } = useRealtimeData()
+  const canCreate = hasPermission('kits', 'create')
+  const canEdit = hasPermission('kits', 'edit')
+  const canDelete = hasPermission('kits', 'delete')
+  const canShowKitActions = canEdit || canDelete
 
   const [form, setForm] = useState<KitForm>(emptyForm)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -137,7 +141,27 @@ export function KitsPage() {
   }
 
   function openCreateModal() {
+    if (!canCreate) {
+      setActionError('No tienes permisos para crear kits.')
+      return
+    }
     resetForm()
+    setShowKitModal(true)
+    setActionError(null)
+    setActionMessage(null)
+  }
+
+  function openEditModal(kit: { id: string; name: string; products: KitProduct[] }) {
+    if (!canEdit) {
+      setActionError('No tienes permisos para editar kits.')
+      return
+    }
+    setEditingId(kit.id)
+    setForm({
+      id: kit.id,
+      name: kit.name,
+      products: kit.products.length > 0 ? kit.products : [{ id: '', name: '', quantity: 1 }],
+    })
     setShowKitModal(true)
     setActionError(null)
     setActionMessage(null)
@@ -207,6 +231,11 @@ export function KitsPage() {
     setActionError(null)
     setActionMessage(null)
 
+    if ((editingId && !canEdit) || (!editingId && !canCreate)) {
+      setActionError('No tienes permisos para guardar kits.')
+      return
+    }
+
     const payload = {
       id: form.id.trim(),
       name: form.name.trim(),
@@ -234,6 +263,7 @@ export function KitsPage() {
       setSaving(true)
       await upsertKit(payload, selectedEventId)
       setActionMessage(editingId ? 'Kit actualizado' : 'Kit creado')
+      refreshData()
       closeModal()
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'No se pudo guardar el kit'
@@ -247,6 +277,11 @@ export function KitsPage() {
     setActionError(null)
     setActionMessage(null)
 
+    if (!canDelete) {
+      setActionError('No tienes permisos para eliminar kits.')
+      return
+    }
+
     const confirmed = window.confirm(
       `Eliminar kit ${kitId} del evento actual?\n\nSi existen entregas antiguas, se conservaran y se mostrara el ID del kit.`,
     )
@@ -256,6 +291,7 @@ export function KitsPage() {
       setDeletingId(kitId)
       await deleteKit(kitId, selectedEventId)
       setActionMessage('Kit eliminado')
+      refreshData()
       if (editingId === kitId) {
         closeModal()
       }
@@ -270,6 +306,11 @@ export function KitsPage() {
   async function onSaveGeneralStock(productCode: string) {
     setStockError(null)
     setStockMessage(null)
+
+    if (!canEdit) {
+      setStockError('No tienes permisos para editar stock.')
+      return
+    }
 
     const value = Number(stockInputs[productCode] ?? Number.NaN)
     if (!Number.isFinite(value) || value < 0) {
@@ -286,6 +327,7 @@ export function KitsPage() {
         updatedBy: user?.email || 'admin',
       })
       setStockMessage(`Stock general actualizado: ${productCode}`)
+      refreshData()
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'No se pudo actualizar stock general'
       setStockError(message)
@@ -297,6 +339,11 @@ export function KitsPage() {
   async function onSaveSectorStocks(productCode: string) {
     setStockError(null)
     setStockMessage(null)
+
+    if (!canEdit) {
+      setStockError('No tienes permisos para editar stock por sector.')
+      return
+    }
 
     const stocks = eventSectors.map((sector) => ({
       sectorId: sector.id,
@@ -331,6 +378,7 @@ export function KitsPage() {
         updatedBy: user?.email || 'admin',
       })
       setStockMessage(`Stock por sector actualizado: ${productCode}`)
+      refreshData()
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'No se pudo actualizar stock por sector'
       setStockError(message)
@@ -357,6 +405,7 @@ export function KitsPage() {
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{stockMessage}</div>
       ) : null}
 
+      {canCreate ? (
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -368,6 +417,7 @@ export function KitsPage() {
           </button>
         </div>
       </div>
+      ) : null}
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <label className="block">
@@ -399,24 +449,18 @@ export function KitsPage() {
                     : kit.products.map((product) => `${product.name} (${product.quantity})`).join(', ')}
                 </p>
 
+                {canShowKitActions ? (
                 <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {canEdit ? (
                   <button
                     type="button"
-                    onClick={() => {
-                      setEditingId(kit.id)
-                      setForm({
-                        id: kit.id,
-                        name: kit.name,
-                        products: kit.products.length > 0 ? kit.products : [{ id: '', name: '', quantity: 1 }],
-                      })
-                      setShowKitModal(true)
-                      setActionError(null)
-                      setActionMessage(null)
-                    }}
+                    onClick={() => openEditModal(kit)}
                     className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
                   >
                     Editar / Productos
                   </button>
+                  ) : null}
+                  {canDelete ? (
                   <button
                     type="button"
                     disabled={deletingId === kit.id}
@@ -437,7 +481,9 @@ export function KitsPage() {
                       </svg>
                     )}
                   </button>
+                  ) : null}
                 </div>
+                ) : null}
               </article>
             ))}
           </div>
@@ -449,7 +495,7 @@ export function KitsPage() {
                   <th className="px-4 py-3 text-left font-semibold text-slate-600">ID</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-600">Nombre</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-600">Productos</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-600">Accion</th>
+                  {canShowKitActions ? <th className="px-4 py-3 text-left font-semibold text-slate-600">Accion</th> : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -462,25 +508,19 @@ export function KitsPage() {
                         ? '-'
                         : kit.products.map((product) => `${product.name} (${product.quantity})`).join(', ')}
                     </td>
+                    {canShowKitActions ? (
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
+                        {canEdit ? (
                         <button
                           type="button"
-                          onClick={() => {
-                            setEditingId(kit.id)
-                            setForm({
-                              id: kit.id,
-                              name: kit.name,
-                              products: kit.products.length > 0 ? kit.products : [{ id: '', name: '', quantity: 1 }],
-                            })
-                            setShowKitModal(true)
-                            setActionError(null)
-                            setActionMessage(null)
-                          }}
+                          onClick={() => openEditModal(kit)}
                           className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
                         >
                           Editar / Productos
                         </button>
+                        ) : null}
+                        {canDelete ? (
                         <button
                           type="button"
                           disabled={deletingId === kit.id}
@@ -501,8 +541,10 @@ export function KitsPage() {
                             </svg>
                           )}
                         </button>
+                        ) : null}
                       </div>
                     </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>
@@ -573,9 +615,11 @@ export function KitsPage() {
                         onChange={(event) =>
                           setStockInputs((current) => ({ ...current, [item.productCode]: event.target.value }))
                         }
+                        disabled={!canEdit}
                         className="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200"
                       />
                     </label>
+                    {canEdit ? (
                     <button
                       type="button"
                       onClick={() => void onSaveGeneralStock(item.productCode)}
@@ -584,6 +628,7 @@ export function KitsPage() {
                     >
                       {savingStockCode === item.productCode ? 'Guardando...' : 'Guardar stock general'}
                     </button>
+                    ) : null}
                   </div>
 
                   <details className="mt-3 rounded-lg border border-slate-200 bg-white p-2">
@@ -605,10 +650,12 @@ export function KitsPage() {
                                 },
                               }))
                             }
+                            disabled={!canEdit}
                             className="w-24 rounded-lg border border-slate-300 px-2 py-1 text-xs outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200"
                           />
                         </label>
                       ))}
+                      {canEdit ? (
                       <button
                         type="button"
                         onClick={() => void onSaveSectorStocks(item.productCode)}
@@ -617,6 +664,7 @@ export function KitsPage() {
                       >
                         {savingSectorStockCode === item.productCode ? 'Guardando...' : 'Guardar sectores'}
                       </button>
+                      ) : null}
                       <p className="text-xs text-slate-500">
                         Validacion: suma sectores ({sectorTotalInput}) {'<='} stock general ({stockInputs[item.productCode] ?? item.stockQuantity})
                       </p>
@@ -668,8 +716,10 @@ export function KitsPage() {
                           onChange={(event) =>
                             setStockInputs((current) => ({ ...current, [item.productCode]: event.target.value }))
                           }
+                          disabled={!canEdit}
                           className="w-24 rounded-lg border border-slate-300 px-2 py-1 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200"
                         />
+                        {canEdit ? (
                         <button
                           type="button"
                           onClick={() => void onSaveGeneralStock(item.productCode)}
@@ -678,6 +728,7 @@ export function KitsPage() {
                         >
                           {savingStockCode === item.productCode ? 'Guardando...' : 'Guardar'}
                         </button>
+                        ) : null}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-slate-700">
@@ -701,6 +752,7 @@ export function KitsPage() {
                                       },
                                     }))
                                   }
+                                  disabled={!canEdit}
                                   className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-xs outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200"
                                 />
                               </div>
@@ -710,6 +762,7 @@ export function KitsPage() {
                             <span className="text-xs text-slate-500">
                               Validacion: suma sectores ({sectorTotalInput}) {'<='} stock general ({stockInputs[item.productCode] ?? item.stockQuantity})
                             </span>
+                            {canEdit ? (
                             <button
                               type="button"
                               onClick={() => void onSaveSectorStocks(item.productCode)}
@@ -718,6 +771,7 @@ export function KitsPage() {
                             >
                               {savingSectorStockCode === item.productCode ? 'Guardando...' : 'Guardar sectores'}
                             </button>
+                            ) : null}
                           </div>
                         </div>
                       </details>
@@ -786,7 +840,7 @@ export function KitsPage() {
                   <button
                     type="button"
                     onClick={addProductRow}
-                    className="rounded-lg border border-emerald-700 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:iolet-50 px-2 py-1 text-xs font-semibold text-violet-700 hover:bg-violet-100"
+                    className="rounded-lg border border-emerald-700 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
                   >
                     + Producto
                   </button>

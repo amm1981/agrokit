@@ -4,6 +4,7 @@ import { ErrorBanner } from '../components/ErrorBanner'
 import { Loader } from '../components/Loader'
 import { PageHeader } from '../components/PageHeader'
 import { useAuth } from '../hooks/useAuth'
+import { useRealtimeData } from '../hooks/useRealtimeData'
 import {
   createGerenciaCatalogItem,
   createSectorCatalogItem,
@@ -58,6 +59,7 @@ function normalizeQuery(value: string) {
 
 export function MaestrosPage() {
   const { hasPermission } = useAuth()
+  const { refreshData } = useRealtimeData()
   const [gerencias, setGerencias] = useState<GerenciaCatalogItem[]>([])
   const [sectors, setSectors] = useState<SectorCatalogItem[]>([])
   const [gerenciaForm, setGerenciaForm] = useState<GerenciaForm>(emptyGerenciaForm)
@@ -71,6 +73,9 @@ export function MaestrosPage() {
   const canCreate = hasPermission('maestros', 'create')
   const canEdit = hasPermission('maestros', 'edit')
   const canDelete = hasPermission('maestros', 'delete')
+  const canShowActions = canEdit || canDelete
+  const canShowGerenciaForm = canCreate || (gerenciaForm.originalName !== null && canEdit)
+  const canShowSectorForm = canCreate || (sectorForm.editingId !== null && canEdit)
 
   const filteredGerencias = useMemo(() => {
     const normalized = normalizeQuery(query)
@@ -170,6 +175,7 @@ export function MaestrosPage() {
       }
       resetGerenciaForm()
       await loadCatalogs()
+      refreshData()
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : 'No se pudo guardar la gerencia')
     } finally {
@@ -218,6 +224,7 @@ export function MaestrosPage() {
       }
       resetSectorForm()
       await loadCatalogs()
+      refreshData()
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : 'No se pudo guardar el sector')
     } finally {
@@ -243,6 +250,7 @@ export function MaestrosPage() {
       const result = await deleteGerenciaCatalogItem(item.name)
       setActionMessage(result.message || 'Accion completada.')
       await loadCatalogs()
+      refreshData()
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : 'No se pudo eliminar la gerencia')
     } finally {
@@ -268,6 +276,7 @@ export function MaestrosPage() {
       const result = await deleteSectorCatalogItem(item.id)
       setActionMessage(result.message || 'Accion completada.')
       await loadCatalogs()
+      refreshData()
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : 'No se pudo eliminar el sector')
     } finally {
@@ -325,6 +334,7 @@ export function MaestrosPage() {
               </span>
             </div>
 
+            {canShowGerenciaForm ? (
             <form onSubmit={saveGerencia} className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
               <div className="grid gap-3 md:grid-cols-[1fr_auto]">
                 <label className="block">
@@ -366,6 +376,7 @@ export function MaestrosPage() {
                 </button>
               </div>
             </form>
+            ) : null}
 
             <div className="overflow-x-auto">
               {filteredGerencias.length === 0 ? (
@@ -376,7 +387,7 @@ export function MaestrosPage() {
                     <tr>
                       <th className="px-3 py-3 font-semibold">Nombre</th>
                       <th className="px-3 py-3 font-semibold">Estado</th>
-                      <th className="px-3 py-3 text-right font-semibold">Acciones</th>
+                      {canShowActions ? <th className="px-3 py-3 text-right font-semibold">Acciones</th> : null}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -388,26 +399,31 @@ export function MaestrosPage() {
                             {item.active ? 'Activo' : 'Inactivo'}
                           </span>
                         </td>
+                        {canShowActions ? (
                         <td className="px-3 py-3">
                           <div className="flex justify-end gap-2">
+                            {canEdit ? (
                             <button
                               type="button"
                               onClick={() => editGerencia(item)}
-                              disabled={!canEdit}
                               className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               Editar
                             </button>
+                            ) : null}
+                            {canDelete ? (
                             <button
                               type="button"
                               onClick={() => void removeGerencia(item)}
-                              disabled={!canDelete || savingKey === `gerencia-delete-${item.name}`}
+                              disabled={savingKey === `gerencia-delete-${item.name}`}
                               className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               {item.canDelete ? 'Eliminar' : 'Desactivar'}
                             </button>
+                            ) : null}
                           </div>
                         </td>
+                        ) : null}
                       </tr>
                     ))}
                   </tbody>
@@ -427,6 +443,7 @@ export function MaestrosPage() {
               </span>
             </div>
 
+            {canShowSectorForm ? (
             <form onSubmit={saveSector} className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
               <div className="grid gap-3 md:grid-cols-[0.75fr_1fr_auto]">
                 <label className="block">
@@ -478,6 +495,7 @@ export function MaestrosPage() {
                 </button>
               </div>
             </form>
+            ) : null}
 
             <div className="overflow-x-auto">
               {filteredSectors.length === 0 ? (
@@ -488,7 +506,7 @@ export function MaestrosPage() {
                     <tr>
                       <th className="px-3 py-3 font-semibold">Sector</th>
                       <th className="px-3 py-3 font-semibold">Estado</th>
-                      <th className="px-3 py-3 text-right font-semibold">Acciones</th>
+                      {canShowActions ? <th className="px-3 py-3 text-right font-semibold">Acciones</th> : null}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -503,26 +521,31 @@ export function MaestrosPage() {
                             {item.active ? 'Activo' : 'Inactivo'}
                           </span>
                         </td>
+                        {canShowActions ? (
                         <td className="px-3 py-3">
                           <div className="flex justify-end gap-2">
+                            {canEdit ? (
                             <button
                               type="button"
                               onClick={() => editSector(item)}
-                              disabled={!canEdit}
                               className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               Editar
                             </button>
+                            ) : null}
+                            {canDelete ? (
                             <button
                               type="button"
                               onClick={() => void removeSector(item)}
-                              disabled={!canDelete || savingKey === `sector-delete-${item.id}`}
+                              disabled={savingKey === `sector-delete-${item.id}`}
                               className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               {item.canDelete ? 'Eliminar' : 'Desactivar'}
                             </button>
+                            ) : null}
                           </div>
                         </td>
+                        ) : null}
                       </tr>
                     ))}
                   </tbody>

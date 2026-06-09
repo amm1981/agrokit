@@ -3,6 +3,7 @@ import { EmptyState } from '../components/EmptyState'
 import { ErrorBanner } from '../components/ErrorBanner'
 import { Loader } from '../components/Loader'
 import { PageHeader } from '../components/PageHeader'
+import { useAuth } from '../hooks/useAuth'
 import { useRealtimeData } from '../hooks/useRealtimeData'
 import { deleteWorkerAndDeliveries } from '../services/realtimeActions'
 import { backendBase } from '../services/backend'
@@ -61,7 +62,9 @@ function resolvePhotoUrl(rawPath: string): string {
 }
 
 export function BeneficiariosPage() {
-  const { workers, kits, deliveries, users, selectedEventId, loading, error } = useRealtimeData()
+  const { hasPermission } = useAuth()
+  const canDelete = hasPermission('beneficiarios', 'delete')
+  const { workers, kits, deliveries, users, selectedEventId, refreshData, loading, error } = useRealtimeData()
 
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('TODOS')
@@ -200,6 +203,11 @@ export function BeneficiariosPage() {
     setActionError(null)
     setActionMessage(null)
 
+    if (!canDelete) {
+      setActionError('No tienes permisos para eliminar beneficiarios.')
+      return
+    }
+
     if (hasDeliveries) {
       setActionError('No se puede eliminar: el beneficiario ya tiene entregas registradas en el evento.')
       return
@@ -214,6 +222,7 @@ export function BeneficiariosPage() {
       setDeletingDni(dni)
       await deleteWorkerAndDeliveries(dni, selectedEventId)
       setActionMessage(`Beneficiario ${dni} eliminado correctamente.`)
+      refreshData()
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'No se pudo eliminar el beneficiario'
       setActionError(message)
@@ -309,6 +318,7 @@ export function BeneficiariosPage() {
                       ) : null}
                     </div>
                   </div>
+                  {canDelete ? (
                   <button
                     type="button"
                     onClick={() => onDeleteWorker(row.dni, row.nombreCompleto, row.hasDeliveries)}
@@ -329,6 +339,7 @@ export function BeneficiariosPage() {
                       </svg>
                     )}
                   </button>
+                  ) : null}
                 </div>
 
                 <div className="divide-y divide-slate-200">
@@ -398,7 +409,7 @@ export function BeneficiariosPage() {
                   <th className="min-w-[112px] px-2 py-2 text-left font-semibold text-slate-600">Fecha</th>
                   <th className="min-w-[95px] px-2 py-2 text-left font-semibold text-slate-600">Foto</th>
                   <th className="min-w-[124px] px-2 py-2 text-left font-semibold text-slate-600">Resumen</th>
-                  <th className="min-w-[54px] px-2 py-2 text-left font-semibold text-slate-600">Accion</th>
+                  {canDelete ? <th className="min-w-[54px] px-2 py-2 text-left font-semibold text-slate-600">Accion</th> : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -481,6 +492,7 @@ export function BeneficiariosPage() {
                                 ) : null}
                               </div>
                             </td>
+                            {canDelete ? (
                             <td rowSpan={row.products.length} className="px-2 py-2 align-top">
                               <button
                                 type="button"
@@ -503,6 +515,7 @@ export function BeneficiariosPage() {
                                 )}
                               </button>
                             </td>
+                            ) : null}
                           </>
                         ) : null}
                       </tr>

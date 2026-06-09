@@ -45,8 +45,10 @@ const statusClasses: Record<EventSummary['status'], string> = {
 }
 
 export function EventosPage() {
-  const { user } = useAuth()
-  const { events, sectors, selectedEventId, setSelectedEventId, loading, error } = useRealtimeData()
+  const { user, hasPermission } = useAuth()
+  const { events, sectors, selectedEventId, setSelectedEventId, refreshData, loading, error } = useRealtimeData()
+  const canCreate = hasPermission('eventos', 'create')
+  const canEdit = hasPermission('eventos', 'edit')
   const [form, setForm] = useState<EventForm>(emptyForm)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -123,6 +125,10 @@ export function EventosPage() {
   }
 
   function openNewEventModal() {
+    if (!canCreate) {
+      setActionError('No tienes permisos para crear eventos.')
+      return
+    }
     resetForm()
     setActionError(null)
     setActionMessage(null)
@@ -148,6 +154,11 @@ export function EventosPage() {
   }
 
   async function onEdit(event: EventSummary) {
+    if (!canEdit) {
+      setActionError('No tienes permisos para editar eventos.')
+      return
+    }
+
     try {
       const eventSectorRows = await apiRequest<Array<{ id: string }>>(`/api/sectors?eventId=${encodeURIComponent(event.id)}`)
       const sectorIds = eventSectorRows.map((item) => String(item.id || '').trim()).filter(Boolean)
@@ -175,6 +186,11 @@ export function EventosPage() {
     setActionError(null)
     setActionMessage(null)
 
+    if ((editingId && !canEdit) || (!editingId && !canCreate)) {
+      setActionError('No tienes permisos para guardar eventos.')
+      return
+    }
+
     const startDate = form.startDateInput.trim()
     const endDate = form.endDateInput.trim()
 
@@ -198,6 +214,7 @@ export function EventosPage() {
       if (!selectedEventId) {
         setSelectedEventId(form.id.trim())
       }
+      refreshData()
       setModalOpen(false)
       resetForm()
     } catch (cause) {
@@ -216,7 +233,7 @@ export function EventosPage() {
     <section className="space-y-5">
       <PageHeader
         title="Eventos"
-        meta={
+        meta={canCreate ? (
           <button
             type="button"
             onClick={openNewEventModal}
@@ -225,7 +242,7 @@ export function EventosPage() {
             <span className="text-xl leading-none">+</span>
             Nuevo evento
           </button>
-        }
+        ) : null}
       />
 
       {error ? <ErrorBanner message={error} /> : null}
@@ -286,6 +303,7 @@ export function EventosPage() {
                       className="col-span-2"
                     />
                   </div>
+                  {canEdit ? (
                   <div className="mt-3">
                     <button
                       type="button"
@@ -295,6 +313,7 @@ export function EventosPage() {
                       Editar
                     </button>
                   </div>
+                  ) : null}
                 </article>
               ))}
             </div>
@@ -310,7 +329,7 @@ export function EventosPage() {
                     <TableHead>Estado</TableHead>
                     <TableHead>Vigencia</TableHead>
                     <TableHead>Sectores</TableHead>
-                    <TableHead>Acciones</TableHead>
+                    {canEdit ? <TableHead>Acciones</TableHead> : null}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -327,6 +346,7 @@ export function EventosPage() {
                         <VigenciaBadge vigente={isEventCurrent(event, now)} />
                       </td>
                       <td className="max-w-[240px] px-4 py-3 text-slate-600">{formatSectorNames(eventSectorNames[event.id])}</td>
+                      {canEdit ? (
                       <td className="px-4 py-3">
                         <button
                           type="button"
@@ -336,6 +356,7 @@ export function EventosPage() {
                           Editar
                         </button>
                       </td>
+                      ) : null}
                     </tr>
                   ))}
                 </tbody>

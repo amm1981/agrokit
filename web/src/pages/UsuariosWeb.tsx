@@ -70,6 +70,7 @@ export function UsuariosWebPage() {
   const canCreate = hasPermission('usuarios_web', 'create')
   const canEdit = hasPermission('usuarios_web', 'edit')
   const canDelete = hasPermission('usuarios_web', 'delete')
+  const canShowActions = canEdit || canDelete
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -149,6 +150,11 @@ export function UsuariosWebPage() {
   }, [])
 
   function openCreateModal() {
+    if (!canCreate) {
+      setError('No tienes permisos para crear usuarios web.')
+      return
+    }
+
     setEditingEmail(null)
     setForm({
       ...EMPTY_FORM,
@@ -162,6 +168,11 @@ export function UsuariosWebPage() {
   }
 
   function openEditModal(userItem: WebUserProfile) {
+    if (!canEdit) {
+      setError('No tienes permisos para editar usuarios web.')
+      return
+    }
+
     setEditingEmail(userItem.email)
     setForm({
       email: userItem.email,
@@ -210,6 +221,11 @@ export function UsuariosWebPage() {
     setError(null)
     setMessage(null)
 
+    if ((!editingEmail && !canCreate) || (editingEmail && !canEdit)) {
+      setError('No tienes permisos para guardar usuarios web.')
+      return
+    }
+
     const email = form.email.trim().toLowerCase()
     if (!email || !form.fullName.trim()) {
       setError('Correo y nombre completo son obligatorios')
@@ -249,6 +265,11 @@ export function UsuariosWebPage() {
   }
 
   async function toggleUserStatus(userItem: WebUserProfile) {
+    if (!canEdit) {
+      setError('No tienes permisos para activar o desactivar usuarios web.')
+      return
+    }
+
     try {
       setProcessingEmail(userItem.email)
       setError(null)
@@ -272,6 +293,11 @@ export function UsuariosWebPage() {
   }
 
   async function removeUser(userItem: WebUserProfile) {
+    if (!canDelete) {
+      setError('No tienes permisos para eliminar usuarios web.')
+      return
+    }
+
     if (user?.email?.trim().toLowerCase() === userItem.email) {
       setError('No puedes eliminar tu propio usuario web')
       return
@@ -319,14 +345,15 @@ export function UsuariosWebPage() {
           />
         </label>
 
+        {canCreate ? (
         <button
           type="button"
           onClick={openCreateModal}
-          disabled={!canCreate}
-          className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800"
         >
           Crear usuario web
         </button>
+        ) : null}
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -339,7 +366,7 @@ export function UsuariosWebPage() {
               <th className="px-4 py-3 text-left font-semibold text-slate-600">Permisos</th>
               <th className="px-4 py-3 text-left font-semibold text-slate-600">Estado</th>
               <th className="px-4 py-3 text-left font-semibold text-slate-600">Creado</th>
-              <th className="px-4 py-3 text-left font-semibold text-slate-600">Acciones</th>
+              {canShowActions ? <th className="px-4 py-3 text-left font-semibold text-slate-600">Acciones</th> : null}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -357,28 +384,34 @@ export function UsuariosWebPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-slate-600">{formatDateTime(userItem.createdAt)}</td>
+                  {canShowActions ? (
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
+                      {canEdit ? (
                       <button
                         type="button"
                         onClick={() => openEditModal(userItem)}
-                        disabled={!canEdit || busy}
+                        disabled={busy}
                         className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
                       >
                         Editar
                       </button>
+                      ) : null}
+                      {canEdit ? (
                       <button
                         type="button"
                         onClick={() => void toggleUserStatus(userItem)}
-                        disabled={!canEdit || busy}
+                        disabled={busy}
                         className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 disabled:opacity-60"
                       >
                         {userItem.active ? 'Desactivar' : 'Activar'}
                       </button>
+                      ) : null}
+                      {canDelete ? (
                       <button
                         type="button"
                         onClick={() => void removeUser(userItem)}
-                        disabled={!canDelete || busy || user?.email?.trim().toLowerCase() === userItem.email}
+                        disabled={busy || user?.email?.trim().toLowerCase() === userItem.email}
                         className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50 p-2 text-red-700 transition hover:bg-red-100 disabled:opacity-60"
                         title="Eliminar usuario web"
                       >
@@ -390,8 +423,10 @@ export function UsuariosWebPage() {
                           <path d="M14 11v6" />
                         </svg>
                       </button>
+                      ) : null}
                     </div>
                   </td>
+                  ) : null}
                 </tr>
               )
             })}

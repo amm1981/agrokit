@@ -62,6 +62,7 @@ export function RolesWebPage() {
   const canCreate = hasPermission('usuarios_web', 'create')
   const canEdit = hasPermission('usuarios_web', 'edit')
   const canDelete = hasPermission('usuarios_web', 'delete')
+  const canShowActions = canEdit || canDelete
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -127,6 +128,11 @@ export function RolesWebPage() {
   }, [])
 
   function openCreateModal() {
+    if (!canCreate) {
+      setError('No tienes permisos para crear roles.')
+      return
+    }
+
     setEditingCode(null)
     setForm({
       ...EMPTY_ROLE_FORM,
@@ -139,6 +145,11 @@ export function RolesWebPage() {
   }
 
   function openEditModal(role: WebRole) {
+    if (!canEdit) {
+      setError('No tienes permisos para editar roles.')
+      return
+    }
+
     setEditingCode(role.code)
     setForm({
       code: role.code,
@@ -175,6 +186,11 @@ export function RolesWebPage() {
     setError(null)
     setMessage(null)
 
+    if ((!editingCode && !canCreate) || (editingCode && !canEdit)) {
+      setError('No tienes permisos para guardar roles.')
+      return
+    }
+
     const code = form.code.trim().toLowerCase()
     const name = form.name.trim()
     if (!code || !name) {
@@ -203,6 +219,11 @@ export function RolesWebPage() {
   }
 
   async function toggleRoleStatus(role: WebRole) {
+    if (!canEdit) {
+      setError('No tienes permisos para activar o desactivar roles.')
+      return
+    }
+
     try {
       setProcessingCode(role.code)
       setError(null)
@@ -225,6 +246,11 @@ export function RolesWebPage() {
   }
 
   async function removeRole(role: WebRole) {
+    if (!canDelete) {
+      setError('No tienes permisos para eliminar roles.')
+      return
+    }
+
     const confirmed = window.confirm(`Se eliminara el rol "${role.name}". ¿Deseas continuar?`)
     if (!confirmed) return
 
@@ -267,14 +293,15 @@ export function RolesWebPage() {
           />
         </label>
 
+        {canCreate ? (
         <button
           type="button"
           onClick={openCreateModal}
-          disabled={!canCreate}
-          className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800"
         >
           Crear rol
         </button>
+        ) : null}
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -286,7 +313,7 @@ export function RolesWebPage() {
               <th className="px-4 py-3 text-left font-semibold text-slate-600">Descripcion</th>
               <th className="px-4 py-3 text-left font-semibold text-slate-600">Permisos</th>
               <th className="px-4 py-3 text-left font-semibold text-slate-600">Estado</th>
-              <th className="px-4 py-3 text-left font-semibold text-slate-600">Acciones</th>
+              {canShowActions ? <th className="px-4 py-3 text-left font-semibold text-slate-600">Acciones</th> : null}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -303,28 +330,34 @@ export function RolesWebPage() {
                       {role.active ? 'Activo' : 'Inactivo'}
                     </span>
                   </td>
+                  {canShowActions ? (
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
+                      {canEdit ? (
                       <button
                         type="button"
                         onClick={() => openEditModal(role)}
-                        disabled={!canEdit || busy}
+                        disabled={busy}
                         className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
                       >
                         Editar
                       </button>
+                      ) : null}
+                      {canEdit ? (
                       <button
                         type="button"
                         onClick={() => void toggleRoleStatus(role)}
-                        disabled={!canEdit || busy}
+                        disabled={busy}
                         className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 disabled:opacity-60"
                       >
                         {role.active ? 'Desactivar' : 'Activar'}
                       </button>
+                      ) : null}
+                      {canDelete ? (
                       <button
                         type="button"
                         onClick={() => void removeRole(role)}
-                        disabled={!canDelete || busy || role.code === 'super_admin'}
+                        disabled={busy || role.code === 'super_admin'}
                         className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50 p-2 text-red-700 transition hover:bg-red-100 disabled:opacity-60"
                         title="Eliminar rol"
                       >
@@ -336,8 +369,10 @@ export function RolesWebPage() {
                           <path d="M14 11v6" />
                         </svg>
                       </button>
+                      ) : null}
                     </div>
                   </td>
+                  ) : null}
                 </tr>
               )
             })}

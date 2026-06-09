@@ -139,8 +139,12 @@ async function downloadWorkerTemplate() {
 }
 
 export function TrabajadoresPage() {
-  const { user } = useAuth()
-  const { workers, eventSectors, selectedEventId, loading, error } = useRealtimeData()
+  const { user, hasPermission } = useAuth()
+  const { workers, eventSectors, selectedEventId, refreshData, loading, error } = useRealtimeData()
+  const canCreate = hasPermission('trabajadores', 'create')
+  const canEdit = hasPermission('trabajadores', 'edit')
+  const canDelete = hasPermission('trabajadores', 'delete')
+  const canShowActions = canEdit || canDelete
 
   const [gerenciasCatalog, setGerenciasCatalog] = useState<string[]>(DEFAULT_GERENCIAS)
   const [form, setForm] = useState<WorkerForm>(emptyForm)
@@ -212,6 +216,10 @@ export function TrabajadoresPage() {
   }
 
   function openCreateModal() {
+    if (!canCreate) {
+      setActionError('No tienes permisos para crear beneficiarios.')
+      return
+    }
     setForm({
       ...emptyForm,
       gerencia: gerenciasCatalog[0] || '',
@@ -231,6 +239,11 @@ export function TrabajadoresPage() {
     event.preventDefault()
     setActionError(null)
     setActionMessage(null)
+
+    if ((editingDni && !canEdit) || (!editingDni && !canCreate)) {
+      setActionError('No tienes permisos para guardar beneficiarios.')
+      return
+    }
 
     const payload: Worker = {
       dni: form.dni.replace(/\D/g, '').slice(0, 8),
@@ -265,6 +278,7 @@ export function TrabajadoresPage() {
         userEmail: user?.email || 'admin@gmail.com',
       })
       setActionMessage(editingDni ? 'Trabajador actualizado' : 'Trabajador creado')
+      refreshData()
       closeModal()
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'No se pudo guardar el trabajador'
@@ -277,6 +291,11 @@ export function TrabajadoresPage() {
   async function onDelete(worker: Worker) {
     setActionError(null)
     setActionMessage(null)
+
+    if (!canDelete) {
+      setActionError('No tienes permisos para eliminar beneficiarios.')
+      return
+    }
 
     if (worker.hasDeliveries) {
       setActionError('No se puede eliminar: el trabajador ya tiene entregas registradas en el evento.')
@@ -292,6 +311,7 @@ export function TrabajadoresPage() {
       setDeletingDni(worker.dni)
       await deleteWorkerAndDeliveries(worker.dni, selectedEventId)
       setActionMessage('Trabajador eliminado')
+      refreshData()
       if (editingDni === worker.dni) {
         closeModal()
       }
@@ -304,6 +324,11 @@ export function TrabajadoresPage() {
   }
 
   function onEdit(worker: Worker) {
+    if (!canEdit) {
+      setActionError('No tienes permisos para editar beneficiarios.')
+      return
+    }
+
     if (worker.hasDeliveries) {
       setActionError('No se puede editar: el trabajador ya tiene entregas registradas en el evento.')
       return
@@ -325,6 +350,11 @@ export function TrabajadoresPage() {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
+
+    if (!canCreate) {
+      setActionError('No tienes permisos para cargar beneficiarios.')
+      return
+    }
 
     setActionError(null)
     setActionMessage(null)
@@ -385,6 +415,7 @@ export function TrabajadoresPage() {
         userEmail: user?.email || 'admin@gmail.com',
       })
       setActionMessage(`Carga masiva completada: ${total} trabajador(es)`)
+      refreshData()
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'No se pudo procesar el archivo .xlsx'
       setActionError(message)
@@ -412,6 +443,7 @@ export function TrabajadoresPage() {
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center gap-2">
+          {canCreate ? (
           <button
             type="button"
             onClick={openCreateModal}
@@ -420,6 +452,7 @@ export function TrabajadoresPage() {
           >
             Agregar beneficiario
           </button>
+          ) : null}
           <button
             type="button"
             onClick={() => void downloadWorkerTemplate()}
@@ -427,6 +460,7 @@ export function TrabajadoresPage() {
           >
             Descargar plantilla
           </button>
+          {canCreate ? (
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -435,6 +469,7 @@ export function TrabajadoresPage() {
           >
             {importing ? 'Importando...' : 'Carga masiva .xlsx'}
           </button>
+          ) : null}
           <input
             ref={fileInputRef}
             type="file"
@@ -493,7 +528,9 @@ export function TrabajadoresPage() {
                   </div>
                 </div>
 
+                {canShowActions ? (
                 <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {canEdit ? (
                   <button
                     type="button"
                     onClick={() => onEdit(worker)}
@@ -502,6 +539,8 @@ export function TrabajadoresPage() {
                   >
                     Editar
                   </button>
+                  ) : null}
+                  {canDelete ? (
                   <button
                     type="button"
                     onClick={() => onDelete(worker)}
@@ -522,7 +561,9 @@ export function TrabajadoresPage() {
                       </svg>
                     )}
                   </button>
+                  ) : null}
                 </div>
+                ) : null}
                 {worker.hasDeliveries ? (
                   <span className="mt-2 inline-block rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
                     Con entregas
@@ -541,7 +582,7 @@ export function TrabajadoresPage() {
                   <th className="px-4 py-3 text-left font-semibold text-slate-600">Area</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-600">Gerencia</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-600">Sector</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-600">Accion</th>
+                  {canShowActions ? <th className="px-4 py-3 text-left font-semibold text-slate-600">Accion</th> : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -552,8 +593,10 @@ export function TrabajadoresPage() {
                     <td className="px-4 py-3 text-slate-600">{worker.area || '-'}</td>
                     <td className="px-4 py-3 text-slate-600">{worker.gerencia || '-'}</td>
                     <td className="px-4 py-3 text-slate-600">{worker.sectorNombre || worker.sectorId || '-'}</td>
+                    {canShowActions ? (
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
+                        {canEdit ? (
                         <button
                           type="button"
                           onClick={() => onEdit(worker)}
@@ -562,6 +605,8 @@ export function TrabajadoresPage() {
                         >
                           Editar
                         </button>
+                        ) : null}
+                        {canDelete ? (
                         <button
                           type="button"
                           onClick={() => onDelete(worker)}
@@ -582,6 +627,7 @@ export function TrabajadoresPage() {
                             </svg>
                           )}
                         </button>
+                        ) : null}
                         {worker.hasDeliveries ? (
                           <span className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
                             Con entregas
@@ -589,6 +635,7 @@ export function TrabajadoresPage() {
                         ) : null}
                       </div>
                     </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>
