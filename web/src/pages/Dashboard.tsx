@@ -639,12 +639,6 @@ export function DashboardPage() {
           }
         />
         <KpiCard title="Entregado" value={formatNumber(totals.deliveredUnits)} helper="Unidades filtradas" tone="success" />
-        <KpiCard
-          title="Criticos"
-          value={formatNumber(totals.criticalProducts)}
-          helper="Productos sin cobertura"
-          tone={totals.criticalProducts > 0 ? 'warning' : 'success'}
-        />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">

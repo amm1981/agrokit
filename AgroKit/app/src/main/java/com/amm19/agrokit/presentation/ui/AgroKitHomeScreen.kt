@@ -165,6 +165,7 @@ fun AgroKitHomeScreen(
     onCloseStockSummaryModal: () -> Unit,
     onSelectedSectorChanged: (String) -> Unit,
     onCaptureAndDeliverClick: (List<DeliveryCaptureItemUi>) -> Unit,
+    onDeliverWithoutPhotoClick: (List<DeliveryCaptureItemUi>) -> Unit,
     onToggleDeliveryProductSelection: (String, String, Boolean) -> Unit,
     onSelectAllPendingProducts: () -> Unit,
     onClearProductSelection: () -> Unit,
@@ -261,6 +262,7 @@ fun AgroKitHomeScreen(
             state = state,
             onClose = onCloseKitsModal,
             onCaptureAndDeliverClick = onCaptureAndDeliverClick,
+            onDeliverWithoutPhotoClick = onDeliverWithoutPhotoClick,
             onToggleDeliveryProductSelection = onToggleDeliveryProductSelection,
             onSelectAllPendingProducts = onSelectAllPendingProducts,
             onClearProductSelection = onClearProductSelection
@@ -1707,6 +1709,7 @@ private fun DeliveryProductsSheet(
     state: AgroKitUiState,
     onClose: () -> Unit,
     onCaptureAndDeliverClick: (List<DeliveryCaptureItemUi>) -> Unit,
+    onDeliverWithoutPhotoClick: (List<DeliveryCaptureItemUi>) -> Unit,
     onToggleDeliveryProductSelection: (String, String, Boolean) -> Unit,
     onSelectAllPendingProducts: () -> Unit,
     onClearProductSelection: () -> Unit
@@ -1741,7 +1744,7 @@ private fun DeliveryProductsSheet(
             }
 
             Button(
-                onClick = { onCaptureAndDeliverClick(state.selectedProducts.map(SelectedDeliveryProductUi::toCaptureItem)) },
+                onClick = { onDeliverWithoutPhotoClick(state.selectedProducts.map(SelectedDeliveryProductUi::toCaptureItem)) },
                 enabled = state.selectedProducts.isNotEmpty(),
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                 colors = ButtonDefaults.buttonColors(
@@ -1749,8 +1752,21 @@ private fun DeliveryProductsSheet(
                     disabledContentColor = DisabledButtonContent
                 )
             ) {
+                Icon(Icons.Outlined.LocalShipping, contentDescription = null)
+                Text(" Entregar seleccion")
+            }
+
+            OutlinedButton(
+                onClick = { onCaptureAndDeliverClick(state.selectedProducts.map(SelectedDeliveryProductUi::toCaptureItem)) },
+                enabled = state.selectedProducts.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    disabledContentColor = DisabledButtonContent
+                )
+            ) {
                 Icon(Icons.Outlined.CameraAlt, contentDescription = null)
-                Text(" Foto + Entregar seleccion")
+                Text(" Tomar foto y entregar")
             }
 
             LazyColumn(
@@ -1775,9 +1791,9 @@ private fun DeliveryProductsSheet(
                             if (kit.delivered) {
                                 Text("Completo")
                             } else {
-                                TextButton(
-                                    onClick = {
-                                        val pending = kit.products
+                                Column(horizontalAlignment = Alignment.End) {
+                                    val pendingProducts: () -> List<DeliveryCaptureItemUi> = {
+                                        kit.products
                                             .mapNotNull { product ->
                                                 val pendingQty = product.pendingQuantity.coerceAtLeast(0.0)
                                                 if (pendingQty <= 0.000001) return@mapNotNull null
@@ -1788,10 +1804,17 @@ private fun DeliveryProductsSheet(
                                                     quantity = pendingQty
                                                 )
                                             }
-                                        onCaptureAndDeliverClick(pending)
                                     }
-                                ) {
-                                    Text("Foto + kit")
+                                    TextButton(
+                                        onClick = { onDeliverWithoutPhotoClick(pendingProducts()) }
+                                    ) {
+                                        Text("Entregar kit")
+                                    }
+                                    TextButton(
+                                        onClick = { onCaptureAndDeliverClick(pendingProducts()) }
+                                    ) {
+                                        Text("Foto + kit")
+                                    }
                                 }
                             }
                         }

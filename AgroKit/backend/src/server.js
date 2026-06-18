@@ -582,13 +582,19 @@ app.post('/api/catalog/sectors', async (req, res) => {
   const id = String(req.body?.id || '').trim()
   const name = String(req.body?.name || '').trim()
   const active = req.body?.active !== false
+  const eventId = toOptionalString(req.body?.eventId)
 
   const connection = await pool.getConnection()
   try {
     await connection.beginTransaction()
     const payload = await upsertSectorCatalogItem(connection, { id, name, active })
+    if (eventId && payload.active !== false) {
+      const event = await resolveEvent(connection, { eventId })
+      await ensureSectorEnabledForEvent(connection, event.id, payload.id)
+    }
     await connection.commit()
     wsBroadcast({ entity: 'sectors', action: 'upsert', payload, ts: Date.now() })
+    if (eventId) wsBroadcast({ entity: 'sectors', action: 'refresh', eventId, ts: Date.now() })
     res.json(payload)
   } catch (error) {
     await connection.rollback()
@@ -602,13 +608,19 @@ app.put('/api/catalog/sectors/:id', async (req, res) => {
   const id = String(req.params.id || '').trim()
   const name = String(req.body?.name || '').trim()
   const active = req.body?.active !== false
+  const eventId = toOptionalString(req.body?.eventId)
 
   const connection = await pool.getConnection()
   try {
     await connection.beginTransaction()
     const payload = await upsertSectorCatalogItem(connection, { id, name, active })
+    if (eventId && payload.active !== false) {
+      const event = await resolveEvent(connection, { eventId })
+      await ensureSectorEnabledForEvent(connection, event.id, payload.id)
+    }
     await connection.commit()
     wsBroadcast({ entity: 'sectors', action: 'upsert', payload, ts: Date.now() })
+    if (eventId) wsBroadcast({ entity: 'sectors', action: 'refresh', eventId, ts: Date.now() })
     wsBroadcast({ entity: 'workers', action: 'refresh', ts: Date.now() })
     res.json(payload)
   } catch (error) {
@@ -816,13 +828,12 @@ app.post('/api/workers/bulk', async (req, res) => {
     }
 
     const [sectorRows] = await connection.query(
-      `SELECT es.sector_id, s.name
-       FROM event_sectors es
-       INNER JOIN sectors s ON s.id = es.sector_id
-       WHERE es.event_id = ?`,
-      [event.id],
+      `SELECT id, name
+       FROM sectors
+       WHERE active = 1
+       ORDER BY name ASC`,
     )
-    const sectorNameById = new Map(sectorRows.map((row) => [String(row.sector_id || ''), String(row.name || '')]))
+    const sectorNameById = new Map(sectorRows.map((row) => [String(row.id || ''), String(row.name || '')]))
 
     const normalizedByDni = new Map()
     const invalidRows = []
@@ -864,6 +875,15 @@ app.post('/api/workers/bulk', async (req, res) => {
     const normalizedWorkers = Array.from(normalizedByDni.values())
     if (normalizedWorkers.length === 0) {
       throw httpError(400, 'No hay trabajadores validos para cargar')
+    }
+
+    const sectorIdsToEnable = Array.from(new Set(normalizedWorkers.map((worker) => worker.sectorId).filter(Boolean)))
+    if (sectorIdsToEnable.length > 0) {
+      await connection.query(
+        `INSERT IGNORE INTO event_sectors (event_id, sector_id)
+         VALUES ?`,
+        [sectorIdsToEnable.map((sectorId) => [event.id, sectorId])],
+      )
     }
 
     const dniList = normalizedWorkers.map((worker) => worker.dni)
@@ -916,6 +936,7 @@ app.post('/api/workers/bulk', async (req, res) => {
     await connection.commit()
 
     wsBroadcast({ entity: 'workers', action: 'refresh', eventId: event.id, ts: Date.now() })
+    wsBroadcast({ entity: 'sectors', action: 'refresh', eventId: event.id, ts: Date.now() })
     wsBroadcast({ entity: 'products.stock', action: 'refresh', eventId: event.id, ts: Date.now() })
     res.json({
       ok: true,
@@ -961,7 +982,7 @@ app.put('/api/workers/:dni', async (req, res) => {
       throw httpError(400, `Gerencia invalida: ${gerencia}. Usa una gerencia del catalogo oficial.`)
     }
     const sectorId = explicitSectorId
-    await ensureSectorBelongsToEvent(connection, event.id, sectorId)
+    await ensureSectorEnabledForEvent(connection, event.id, sectorId)
 
     const [existingBeneficiaryRows] = await connection.query(
       `SELECT worker_dni
@@ -1266,6 +1287,7 @@ app.put('/api/products/:id/stock', async (req, res) => {
 
     await connection.commit()
 
+    wsBroadcast({ entity: 'sectors', action: 'refresh', eventId: event.id, ts: Date.now() })
     const summary = await fetchProductStockSummary(connection, event.id)
     const payload = summary.find((item) => item.productCode === productCode) || null
     if (payload) {
@@ -1306,7 +1328,7 @@ app.put('/api/products/:id/sector-stock', async (req, res) => {
     await connection.beginTransaction()
     const event = await resolveEvent(connection, { eventId })
     await ensureProductConfiguredInEvent(connection, event.id, productCode)
-    await ensureSectorBelongsToEvent(connection, event.id, sectorId)
+    await ensureSectorEnabledForEvent(connection, event.id, sectorId)
     await ensureProductSectorStockTable(connection)
     const generalStockQuantity = await getProductGeneralStockQuantity(connection, {
       eventId: event.id,
@@ -1341,6 +1363,7 @@ app.put('/api/products/:id/sector-stock', async (req, res) => {
 
     await connection.commit()
 
+    wsBroadcast({ entity: 'sectors', action: 'refresh', eventId: event.id, ts: Date.now() })
     const summary = await fetchProductStockSummary(connection, event.id)
     const payload = summary.find((item) => item.productCode === productCode) || null
     if (payload) {
@@ -1409,7 +1432,7 @@ app.put('/api/products/:id/sector-stocks', async (req, res) => {
     await ensureProductSectorStockTable(connection)
 
     for (const stock of dedupedStocks) {
-      await ensureSectorBelongsToEvent(connection, event.id, stock.sectorId)
+      await ensureSectorEnabledForEvent(connection, event.id, stock.sectorId)
     }
 
     const totalBySectors = dedupedStocks.reduce((acc, item) => acc + Number(item.stockQuantity || 0), 0)
@@ -3602,6 +3625,29 @@ async function ensureSectorBelongsToEvent(connection, eventId, sectorId) {
   }
 }
 
+async function ensureSectorEnabledForEvent(connection, eventId, sectorId) {
+  const normalizedSectorId = String(sectorId || '').trim()
+  if (!normalizedSectorId) throw httpError(400, 'sectorId requerido')
+
+  const [rows] = await connection.query(
+    `SELECT id
+     FROM sectors
+     WHERE id = ?
+       AND active = 1
+     LIMIT 1`,
+    [normalizedSectorId],
+  )
+  if (!rows?.[0]) {
+    throw httpError(400, `El sector ${normalizedSectorId} no existe o esta inactivo en maestros`)
+  }
+
+  await connection.query(
+    `INSERT IGNORE INTO event_sectors (event_id, sector_id)
+     VALUES (?, ?)`,
+    [eventId, normalizedSectorId],
+  )
+}
+
 async function ensureSectorIdsBelongToCatalog(connection, sectorIds) {
   if (!Array.isArray(sectorIds) || sectorIds.length === 0) return
 
@@ -3991,9 +4037,11 @@ async function normalizeLegacyGerencias(connection) {
 
 async function fetchGerenciaUsage(connection, name) {
   const [rows] = await connection.query(
-    `SELECT COUNT(*) AS workers_count
-     FROM workers
-     WHERE centro_costo = ?`,
+    `SELECT COUNT(DISTINCT w.dni) AS workers_count
+     FROM workers w
+     INNER JOIN event_beneficiaries b
+       ON b.worker_dni = w.dni
+     WHERE w.centro_costo = ?`,
     [name],
   )
   return { workersCount: Number(rows?.[0]?.workers_count || 0) }

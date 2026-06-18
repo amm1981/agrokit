@@ -568,6 +568,14 @@ class AgroKitViewModel @Inject constructor(
     }
 
     fun onDeliveryWithPhotoCaptured(products: List<DeliveryCaptureItemUi>, photoPath: String) {
+        registerDelivery(products = products, photoPath = photoPath)
+    }
+
+    fun onDeliveryWithoutPhoto(products: List<DeliveryCaptureItemUi>) {
+        registerDelivery(products = products, photoPath = "")
+    }
+
+    private fun registerDelivery(products: List<DeliveryCaptureItemUi>, photoPath: String) {
         val dni = _uiState.value.searchedDni ?: return
         if (!_uiState.value.isAuthenticated) return
         if (products.isEmpty()) return

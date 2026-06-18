@@ -143,6 +143,7 @@ export async function createSectorCatalogItem(payload: {
   id: string
   name: string
   active: boolean
+  eventId?: string
 }): Promise<SectorCatalogItem> {
   return apiRequest<SectorCatalogItem>('/api/catalog/sectors', {
     method: 'POST',
@@ -155,6 +156,7 @@ export async function updateSectorCatalogItem(
   payload: {
     name: string
     active: boolean
+    eventId?: string
   },
 ): Promise<SectorCatalogItem> {
   return apiRequest<SectorCatalogItem>(`/api/catalog/sectors/${encodeURIComponent(id)}`, {

@@ -2,8 +2,12 @@
 
 import android.Manifest
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.graphics.Matrix
 import android.content.pm.PackageManager
+import android.media.ExifInterface
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
@@ -20,6 +24,7 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.amm19.agrokit.presentation.scanner.PdaScannerBroadcastReceiver
 import com.amm19.agrokit.presentation.ui.AgroKitHomeScreen
@@ -28,6 +33,9 @@ import com.amm19.agrokit.presentation.viewmodel.AgroKitViewModel
 import com.amm19.agrokit.ui.theme.AgroKitTheme
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -70,10 +78,16 @@ class MainActivity : ComponentActivity() {
             return@registerForActivityResult
         }
 
-        viewModel.onDeliveryWithPhotoCaptured(
-            products = pending.products,
-            photoPath = pending.file.absolutePath
-        )
+        lifecycleScope.launch {
+            val photoFile = withContext(Dispatchers.IO) {
+                compressPhotoFile(pending.file)
+            }
+
+            viewModel.onDeliveryWithPhotoCaptured(
+                products = pending.products,
+                photoPath = photoFile.absolutePath
+            )
+        }
     }
 
     override fun onStart() {
@@ -131,6 +145,7 @@ class MainActivity : ComponentActivity() {
                             ensureCameraAndCapture(workerDni = workerDni, products = products)
                         }
                     },
+                    onDeliverWithoutPhotoClick = viewModel::onDeliveryWithoutPhoto,
                     onToggleDeliveryProductSelection = viewModel::onToggleDeliveryProductSelection,
                     onSelectAllPendingProducts = viewModel::onSelectAllPendingProducts,
                     onClearProductSelection = viewModel::onClearProductSelection,
@@ -243,6 +258,79 @@ class MainActivity : ComponentActivity() {
         return File(workerDir, fileName)
     }
 
+    private fun compressPhotoFile(file: File): File {
+        if (!file.exists() || file.length() <= 0L) return file
+
+        return runCatching {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(file.absolutePath, bounds)
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@runCatching file
+
+            val decodeOptions = BitmapFactory.Options().apply {
+                inSampleSize = calculateSampleSize(bounds.outWidth, bounds.outHeight, MAX_EVIDENCE_PHOTO_DIMENSION)
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+            val decoded = BitmapFactory.decodeFile(file.absolutePath, decodeOptions) ?: return@runCatching file
+            val oriented = applyExifOrientation(file, decoded)
+            val scaled = scaleBitmapToMaxDimension(oriented, MAX_EVIDENCE_PHOTO_DIMENSION)
+
+            val tempFile = File(file.parentFile, "${file.nameWithoutExtension}_compressed.${file.extension.ifBlank { "jpg" }}")
+            tempFile.outputStream().use { output ->
+                scaled.compress(Bitmap.CompressFormat.JPEG, EVIDENCE_PHOTO_JPEG_QUALITY, output)
+            }
+
+            if (scaled !== oriented) scaled.recycle()
+            if (oriented !== decoded) oriented.recycle()
+            decoded.recycle()
+
+            if (tempFile.length() > 0L) {
+                if (file.delete() && tempFile.renameTo(file)) {
+                    file
+                } else {
+                    tempFile
+                }
+            } else {
+                tempFile.delete()
+                file
+            }
+        }.getOrElse { file }
+    }
+
+    private fun calculateSampleSize(width: Int, height: Int, maxDimension: Int): Int {
+        var sampleSize = 1
+        while (width / sampleSize > maxDimension || height / sampleSize > maxDimension) {
+            sampleSize *= 2
+        }
+        return sampleSize
+    }
+
+    private fun applyExifOrientation(file: File, bitmap: Bitmap): Bitmap {
+        val rotation = ExifInterface(file.absolutePath).getAttributeInt(
+            ExifInterface.TAG_ORIENTATION,
+            ExifInterface.ORIENTATION_NORMAL
+        )
+        val degrees = when (rotation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+            ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+            ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+            else -> 0f
+        }
+        if (degrees == 0f) return bitmap
+
+        val matrix = Matrix().apply { postRotate(degrees) }
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    }
+
+    private fun scaleBitmapToMaxDimension(bitmap: Bitmap, maxDimension: Int): Bitmap {
+        val largestSide = maxOf(bitmap.width, bitmap.height)
+        if (largestSide <= maxDimension) return bitmap
+
+        val scale = maxDimension.toFloat() / largestSide.toFloat()
+        val targetWidth = (bitmap.width * scale).toInt().coerceAtLeast(1)
+        val targetHeight = (bitmap.height * scale).toInt().coerceAtLeast(1)
+        return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+    }
+
     private data class PendingPhotoCapture(
         val products: List<DeliveryCaptureItemUi>,
         val file: File
@@ -252,4 +340,9 @@ class MainActivity : ComponentActivity() {
         val workerDni: String,
         val products: List<DeliveryCaptureItemUi>
     )
+
+    private companion object {
+        const val MAX_EVIDENCE_PHOTO_DIMENSION = 1600
+        const val EVIDENCE_PHOTO_JPEG_QUALITY = 75
+    }
 }

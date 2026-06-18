@@ -67,11 +67,12 @@ function resolveCatalogGerencia(rawValue: string, catalog: string[]): string {
   return matched || ''
 }
 
-function resolveSectorIdFromRow(sectorRaw: string, eventSectors: Sector[]): string {
+function resolveSectorIdFromRow(sectorRaw: string, sectors: Sector[]): string {
   const token = normalizeLookup(sectorRaw)
   if (!token) return ''
 
-  const matched = eventSectors.find((sector) => {
+  const matched = sectors.find((sector) => {
+    if (sector.active === false) return false
     return normalizeLookup(sector.id) === token || normalizeLookup(sector.name) === token
   })
 
@@ -140,7 +141,7 @@ async function downloadWorkerTemplate() {
 
 export function TrabajadoresPage() {
   const { user, hasPermission } = useAuth()
-  const { workers, eventSectors, selectedEventId, refreshData, loading, error } = useRealtimeData()
+  const { workers, sectors, eventSectors, selectedEventId, refreshData, loading, error } = useRealtimeData()
   const canCreate = hasPermission('trabajadores', 'create')
   const canEdit = hasPermission('trabajadores', 'edit')
   const canDelete = hasPermission('trabajadores', 'delete')
@@ -367,7 +368,7 @@ export function TrabajadoresPage() {
       setImportStatus(`Validando ${parsed.length} fila(s)...`)
       const missingSectorRows = parsed
         .map((row, index) => {
-          const sectorId = resolveSectorIdFromRow(row.sectorRaw, eventSectors)
+          const sectorId = resolveSectorIdFromRow(row.sectorRaw, sectors)
           return sectorId ? null : { row, rowNumber: index + 2 }
         })
         .filter((item): item is { row: WorkerBulkRow; rowNumber: number } => item !== null)
@@ -377,7 +378,7 @@ export function TrabajadoresPage() {
           .slice(0, 8)
           .map((item) => `fila ${item.rowNumber} (DNI ${item.row.dni || '-'}, Sector "${item.row.sectorRaw || '-'}")`)
           .join('; ')
-        throw new Error(`Sector invalido o vacio en: ${preview}`)
+        throw new Error(`Sector invalido, inactivo o vacio en maestros: ${preview}`)
       }
 
       const invalidGerenciaRows = parsed
@@ -400,7 +401,7 @@ export function TrabajadoresPage() {
         nombreCompleto: row.nombreCompleto,
         area: row.area,
         gerencia: resolveCatalogGerencia(row.gerencia, gerenciasCatalog),
-        sectorId: resolveSectorIdFromRow(row.sectorRaw, eventSectors),
+        sectorId: resolveSectorIdFromRow(row.sectorRaw, sectors),
         sectorNombre: '',
         eventId: selectedEventId,
         hasDeliveries: false,

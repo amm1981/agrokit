@@ -63,7 +63,7 @@ function buildProductCode(params: {
 
 export function KitsPage() {
   const { user, hasPermission } = useAuth()
-  const { kits, selectedEventId, events, eventSectors, productStocks, refreshData, loading, error } = useRealtimeData()
+  const { kits, selectedEventId, events, sectors, productStocks, refreshData, loading, error } = useRealtimeData()
   const canCreate = hasPermission('kits', 'create')
   const canEdit = hasPermission('kits', 'edit')
   const canDelete = hasPermission('kits', 'delete')
@@ -91,6 +91,8 @@ export function KitsPage() {
     [events, selectedEventId],
   )
 
+  const stockSectors = useMemo(() => sectors.filter((sector) => sector.active !== false), [sectors])
+
   const eventAbbreviation = useMemo(() => {
     return buildEventAbbreviation(selectedEvent?.name || selectedEventId || 'EVT')
   }, [selectedEvent?.name, selectedEventId])
@@ -103,7 +105,7 @@ export function KitsPage() {
       nextGeneral[item.productCode] = String(item.stockQuantity)
 
       const sectorMap: Record<string, string> = {}
-      eventSectors.forEach((sector) => {
+      stockSectors.forEach((sector) => {
         const found = item.sectorStocks.find((entry) => entry.sectorId === sector.id)
         sectorMap[sector.id] = String(found?.stockQuantity ?? 0)
       })
@@ -112,7 +114,7 @@ export function KitsPage() {
 
     setStockInputs(nextGeneral)
     setSectorStockInputs(nextSector)
-  }, [productStocks, eventSectors])
+  }, [productStocks, stockSectors])
 
   const filteredKits = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -345,7 +347,7 @@ export function KitsPage() {
       return
     }
 
-    const stocks = eventSectors.map((sector) => ({
+    const stocks = stockSectors.map((sector) => ({
       sectorId: sector.id,
       stockQuantity: Number(sectorStockInputs[productCode]?.[sector.id] ?? 0),
     }))
@@ -579,7 +581,7 @@ export function KitsPage() {
           <>
             <div className="space-y-3 p-3 md:hidden">
               {filteredStocks.map((item) => {
-                const sectorTotalInput = eventSectors.reduce(
+                const sectorTotalInput = stockSectors.reduce(
                   (acc, sector) => acc + Number(sectorStockInputs[item.productCode]?.[sector.id] ?? 0),
                   0,
                 )
@@ -636,7 +638,7 @@ export function KitsPage() {
                       Stock por sectores · Total {sectorTotalInput}
                     </summary>
                     <div className="mt-2 space-y-2">
-                      {eventSectors.map((sector) => (
+                      {stockSectors.map((sector) => (
                         <label key={sector.id} className="grid grid-cols-[1fr_auto] items-center gap-2">
                           <span className="text-xs text-slate-700">{sector.name}</span>
                           <input
@@ -695,7 +697,7 @@ export function KitsPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredStocks.map((item) => {
-                  const sectorTotalInput = eventSectors.reduce(
+                  const sectorTotalInput = stockSectors.reduce(
                     (acc, sector) => acc + Number(sectorStockInputs[item.productCode]?.[sector.id] ?? 0),
                     0,
                   )
@@ -737,7 +739,7 @@ export function KitsPage() {
                           Total sector: {sectorTotalInput}
                         </summary>
                         <div className="mt-2 space-y-2">
-                          {eventSectors.map((sector) => {
+                          {stockSectors.map((sector) => {
                             return (
                               <div key={sector.id} className="grid grid-cols-[1fr_auto] items-center gap-2">
                                 <span className="text-xs text-slate-700">{sector.name}</span>

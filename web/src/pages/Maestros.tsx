@@ -59,7 +59,7 @@ function normalizeQuery(value: string) {
 
 export function MaestrosPage() {
   const { hasPermission } = useAuth()
-  const { refreshData } = useRealtimeData()
+  const { selectedEventId, refreshData } = useRealtimeData()
   const [gerencias, setGerencias] = useState<GerenciaCatalogItem[]>([])
   const [sectors, setSectors] = useState<SectorCatalogItem[]>([])
   const [gerenciaForm, setGerenciaForm] = useState<GerenciaForm>(emptyGerenciaForm)
@@ -212,6 +212,7 @@ export function MaestrosPage() {
         await updateSectorCatalogItem(sectorForm.editingId, {
           name,
           active: sectorForm.active,
+          eventId: selectedEventId,
         })
         setActionMessage('Sector actualizado.')
       } else {
@@ -219,6 +220,7 @@ export function MaestrosPage() {
           id,
           name,
           active: sectorForm.active,
+          eventId: selectedEventId,
         })
         setActionMessage('Sector creado.')
       }
