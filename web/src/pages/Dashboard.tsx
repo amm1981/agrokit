@@ -338,7 +338,15 @@ export function DashboardPage() {
 
     const availableStock = sectorStock
     const progress = availableStock > 0 ? (deliveredUnits / availableStock) * 100 : 0
-    const criticalProducts = productStocks.filter((item) => !item.sufficientForBeneficiaries).length
+    const criticalProducts = productStocks.filter((item) => {
+      const sectorStock =
+        sectorFilter === 'TODOS'
+          ? Number(item.sectorStockQuantity || 0)
+          : Number(item.sectorStocks.find((sector) => sector.sectorId === sectorFilter)?.stockQuantity || 0)
+      const delivered = Number(deliveredByProduct.get(item.productCode) || 0)
+      const baseStock = sectorFilter === 'TODOS' ? Number(item.stockQuantity || 0) : sectorStock
+      return baseStock - delivered < 0
+    }).length
 
     return {
       deliveredUnits,
@@ -348,7 +356,7 @@ export function DashboardPage() {
       progress,
       criticalProducts,
     }
-  }, [filteredDeliveries, productStocks, sectorFilter])
+  }, [filteredDeliveries, productStocks, sectorFilter, deliveredByProduct])
 
   const stockBySectorRows = useMemo(() => {
     const rows = sectorOptions.map((sector) => {
@@ -484,7 +492,7 @@ export function DashboardPage() {
           sectorStock,
           delivered,
           available,
-          isCritical: !product.sufficientForBeneficiaries || available <= 0,
+          isCritical: available < 0,
         }
       })
       .sort((a, b) => Number(b.isCritical) - Number(a.isCritical) || a.productName.localeCompare(b.productName, 'es'))
@@ -639,6 +647,12 @@ export function DashboardPage() {
           }
         />
         <KpiCard title="Entregado" value={formatNumber(totals.deliveredUnits)} helper="Unidades filtradas" tone="success" />
+        <KpiCard
+          title="Criticos"
+          value={formatNumber(totals.criticalProducts)}
+          helper="Productos sin cobertura"
+          tone={totals.criticalProducts > 0 ? 'warning' : 'success'}
+        />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
@@ -735,7 +749,7 @@ export function DashboardPage() {
                     </div>
                     <div className="rounded-lg border border-slate-200 bg-white p-2">
                       <p className="text-slate-500">Saldo</p>
-                      <p className={`font-semibold ${row.available <= 0 ? 'text-amber-700' : 'text-slate-700'}`}>
+                      <p className={`font-semibold ${row.available < 0 ? 'text-amber-700' : 'text-slate-700'}`}>
                         {formatNumber(row.available)}
                       </p>
                     </div>
@@ -774,7 +788,7 @@ export function DashboardPage() {
                       <td className="py-3 pr-4 text-slate-700">{formatNumber(row.generalStock)}</td>
                       <td className="py-3 pr-4 text-slate-700">{formatNumber(row.sectorStock)}</td>
                       <td className="py-3 pr-4 text-slate-700">{formatNumber(row.delivered)}</td>
-                      <td className={`py-3 pr-4 font-semibold ${row.available <= 0 ? 'text-amber-700' : 'text-slate-900'}`}>
+                      <td className={`py-3 pr-4 font-semibold ${row.available < 0 ? 'text-amber-700' : 'text-slate-900'}`}>
                         {formatNumber(row.available)}
                       </td>
                       <td className="py-3">
